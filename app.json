@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Healthcare Medical App",
+    "slug": "healthcare-medical-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo_eye.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/logo_eye.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo_eye.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.eye12.healthcaremedicalapp"
+    },
+    "web": {
+      "favicon": "./assets/logo_eye.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9a610469-01dc-4e37-a98c-a5397597d51e"
+      }
+    }
+  }
+}

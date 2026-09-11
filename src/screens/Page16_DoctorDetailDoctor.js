@@ -10,19 +10,30 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 
-import { Edit3, Camera } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+
+import {
+  Edit3,
+  Camera,
+  Check,
+} from 'lucide-react-native';
 
 import StatusBarMock from '../components/StatusBarMock';
 import Header from '../components/Header';
 
 
 // =================================================
-// API
+// API URL
 // =================================================
 
-const API_URL = 'https://eye-healthcare-backend.vercel.app';
+// Android Emulator -> Local Windows Backend
+const API_URL = 'http://10.0.2.2:5000';
 
 
 // =================================================
@@ -41,7 +52,7 @@ const weekDays = [
 
 
 // =================================================
-// Available Time Slots
+// Time Slots
 // =================================================
 
 const timeSlotsData = [
@@ -63,22 +74,27 @@ const timeSlotsData = [
 
 const generateNextSevenDays = () => {
   const result = [];
-
   const today = new Date();
 
   for (let i = 0; i < 7; i++) {
     const date = new Date(today);
 
-    date.setDate(today.getDate() + i);
+    date.setDate(
+      today.getDate() + i
+    );
 
     result.push({
       day: weekDays[date.getDay()],
 
-      date: String(date.getDate()),
+      date: String(
+        date.getDate()
+      ),
 
-      month: date.getMonth() + 1,
+      month:
+        date.getMonth() + 1,
 
-      year: date.getFullYear(),
+      year:
+        date.getFullYear(),
 
       fullDate:
         `${date.getFullYear()}-${String(
@@ -94,7 +110,7 @@ const generateNextSevenDays = () => {
 
 
 // =================================================
-// Page 16
+// Page
 // =================================================
 
 export default function Page16_DoctorDetailDoctor({
@@ -103,7 +119,7 @@ export default function Page16_DoctorDetailDoctor({
 }) {
 
   // =================================================
-  // Dates
+  // Next 7 Days
   // =================================================
 
   const [daysData] = useState(
@@ -112,41 +128,33 @@ export default function Page16_DoctorDetailDoctor({
 
 
   // =================================================
-  // Doctor
+  // Doctor Data
   // =================================================
 
   const [doctor, setDoctor] =
     useState(null);
-
-
-  // =================================================
-  // About
-  // =================================================
 
   const [about, setAbout] =
     useState('');
 
 
   // =================================================
-  // OLD Available Days
-  // Keep for compatibility
+  // Selected Profile Image
+  // =================================================
+
+  const [selectedAvatarUri, setSelectedAvatarUri] =
+    useState(null);
+
+
+  // =================================================
+  // Availability
   // =================================================
 
   const [availableDays, setAvailableDays] =
     useState([]);
 
-
-  // =================================================
-  // NEW Exact Available Dates
-  // =================================================
-
   const [availableDates, setAvailableDates] =
     useState([]);
-
-
-  // =================================================
-  // Available Time Slots
-  // =================================================
 
   const [availableTimeSlots, setAvailableTimeSlots] =
     useState([]);
@@ -169,16 +177,34 @@ export default function Page16_DoctorDetailDoctor({
 
 
   // =================================================
+  // About Modal
+  // =================================================
+
+  const [aboutModalVisible, setAboutModalVisible] =
+    useState(false);
+
+  const [aboutDraft, setAboutDraft] =
+    useState('');
+
+
+  // =================================================
+  // Edit Modes
+  // =================================================
+
+  const [dateEditMode, setDateEditMode] =
+    useState(false);
+
+  const [timeEditMode, setTimeEditMode] =
+    useState(false);
+
+
+  // =================================================
   // Load Doctor
   // =================================================
 
   useEffect(() => {
 
     if (!doctorId) {
-
-      console.log(
-        '❌ Page16: Doctor ID not received'
-      );
 
       Alert.alert(
         'Doctor ID Missing',
@@ -195,42 +221,21 @@ export default function Page16_DoctorDetailDoctor({
 
         setLoading(true);
 
-        console.log(
-          '================================='
-        );
-
-        console.log(
-          'Loading Doctor Details'
-        );
-
-        console.log(
-          'Doctor ID:',
-          doctorId
-        );
-
-        console.log(
-          '================================='
-        );
-
-
-        // =================================================
-        // GET Doctor
-        // =================================================
 
         const response =
           await fetch(
-            `${API_URL}/api/doctors/${doctorId}`
+            `${API_URL}/api/doctors/${doctorId}?_t=${Date.now()}`,
+            {
+              headers: {
+                'Cache-Control': 'no-cache',
+                Pragma: 'no-cache',
+              },
+            }
           );
 
 
         const data =
           await response.json();
-
-
-        console.log(
-          'Doctor API Response:',
-          data
-        );
 
 
         if (!response.ok) {
@@ -263,7 +268,7 @@ export default function Page16_DoctorDetailDoctor({
 
 
         // =================================================
-        // Old Available Days
+        // Available Days
         // =================================================
 
         const doctorDays =
@@ -271,26 +276,22 @@ export default function Page16_DoctorDetailDoctor({
             data.availableDays
           )
             ? data.availableDays
-                .map(
-                  (day) =>
-                    String(day).trim()
+                .map((day) =>
+                  String(day).trim()
                 )
                 .filter(Boolean)
             : [];
 
 
-        const uniqueDays = [
-          ...new Set(doctorDays),
-        ];
-
-
-        setAvailableDays(
-          uniqueDays
-        );
+        setAvailableDays([
+          ...new Set(
+            doctorDays
+          ),
+        ]);
 
 
         // =================================================
-        // NEW Available Dates
+        // Available Dates
         // =================================================
 
         const doctorDates =
@@ -298,26 +299,41 @@ export default function Page16_DoctorDetailDoctor({
             data.availableDates
           )
             ? data.availableDates
-                .map(
-                  (date) =>
-                    String(date).trim()
+                .map((date) =>
+                  String(date).trim()
                 )
                 .filter(Boolean)
             : [];
 
 
-        const uniqueDates = [
-          ...new Set(doctorDates),
+        const allowedDates =
+          new Set(
+            daysData.map(
+              (item) =>
+                item.fullDate
+            )
+          );
+
+
+        const validDates = [
+          ...new Set(
+            doctorDates.filter(
+              (date) =>
+                allowedDates.has(
+                  date
+                )
+            )
+          ),
         ];
 
 
         setAvailableDates(
-          uniqueDates
+          validDates
         );
 
 
         // =================================================
-        // Available Time Slots
+        // Available Times
         // =================================================
 
         const doctorTimes =
@@ -325,16 +341,17 @@ export default function Page16_DoctorDetailDoctor({
             data.availableTimeSlots
           )
             ? data.availableTimeSlots
-                .map(
-                  (time) =>
-                    String(time).trim()
+                .map((time) =>
+                  String(time).trim()
                 )
                 .filter(Boolean)
             : [];
 
 
         const uniqueTimes = [
-          ...new Set(doctorTimes),
+          ...new Set(
+            doctorTimes
+          ),
         ];
 
 
@@ -343,57 +360,10 @@ export default function Page16_DoctorDetailDoctor({
         );
 
 
-        // =================================================
-        // First Available Time
-        // =================================================
-
-        if (
+        setSelectedTime(
           uniqueTimes.length > 0
-        ) {
-
-          setSelectedTime(
-            uniqueTimes[0]
-          );
-
-        } else {
-
-          setSelectedTime(
-            null
-          );
-
-        }
-
-
-        console.log(
-          '================================='
-        );
-
-        console.log(
-          'Doctor loaded successfully'
-        );
-
-        console.log(
-          'Doctor Name:',
-          data.name
-        );
-
-        console.log(
-          'Available Days:',
-          uniqueDays
-        );
-
-        console.log(
-          'Available Dates:',
-          uniqueDates
-        );
-
-        console.log(
-          'Available Time Slots:',
-          uniqueTimes
-        );
-
-        console.log(
-          '================================='
+            ? uniqueTimes[0]
+            : null
         );
 
 
@@ -410,6 +380,7 @@ export default function Page16_DoctorDetailDoctor({
           'Cannot connect to the backend server. Make sure the backend is running.'
         );
 
+
       } finally {
 
         setLoading(false);
@@ -421,20 +392,29 @@ export default function Page16_DoctorDetailDoctor({
 
     loadDoctor();
 
-  }, [doctorId]);
+  }, [doctorId, daysData]);
 
 
   // =================================================
-  // Select / Unselect EXACT DATE
+  // Date Selection
   // =================================================
 
-  const handleDatePress = (fullDate) => {
+  const handleDatePress = (
+    fullDate
+  ) => {
+
+    if (!dateEditMode) {
+      return;
+    }
+
 
     setAvailableDates(
       (previousDates) => {
 
         if (
-          previousDates.includes(fullDate)
+          previousDates.includes(
+            fullDate
+          )
         ) {
 
           return previousDates.filter(
@@ -457,16 +437,25 @@ export default function Page16_DoctorDetailDoctor({
 
 
   // =================================================
-  // Select / Unselect Time
+  // Time Selection
   // =================================================
 
-  const handleTimePress = (time) => {
+  const handleTimePress = (
+    time
+  ) => {
+
+    if (!timeEditMode) {
+      return;
+    }
+
 
     setAvailableTimeSlots(
       (previousSlots) => {
 
         if (
-          previousSlots.includes(time)
+          previousSlots.includes(
+            time
+          )
         ) {
 
           const updatedSlots =
@@ -494,6 +483,9 @@ export default function Page16_DoctorDetailDoctor({
         }
 
 
+        setSelectedTime(time);
+
+
         return [
           ...previousSlots,
           time,
@@ -502,22 +494,175 @@ export default function Page16_DoctorDetailDoctor({
       }
     );
 
-
-    setSelectedTime(time);
-
   };
 
 
   // =================================================
-  // Save Changes
+  // Open About Editor
+  // =================================================
+
+  const handleOpenAboutEditor =
+    () => {
+
+      setAboutDraft(
+        about
+      );
+
+      setAboutModalVisible(
+        true
+      );
+
+    };
+
+
+  // =================================================
+  // Save About Draft
+  // =================================================
+
+  const handleSaveAboutDraft =
+    () => {
+
+      const value =
+        aboutDraft.trim();
+
+
+      if (!value) {
+
+        Alert.alert(
+          'About Required',
+          'Please enter information about the doctor.'
+        );
+
+        return;
+      }
+
+
+      setAbout(value);
+
+      setAboutModalVisible(
+        false
+      );
+
+    };
+
+
+  // =================================================
+  // Pick Doctor Profile Image
+  // =================================================
+
+  const handlePickProfileImage =
+    async () => {
+
+      try {
+
+        const permission =
+          await ImagePicker
+            .requestMediaLibraryPermissionsAsync();
+
+
+        if (!permission.granted) {
+
+          Alert.alert(
+            'Permission Required',
+            'Please allow gallery access to change the profile picture.'
+          );
+
+          return;
+        }
+
+
+        // =================================================
+        // Open Gallery
+        // =================================================
+
+        const result =
+          await ImagePicker
+            .launchImageLibraryAsync({
+
+              mediaTypes:
+                ImagePicker
+                  .MediaTypeOptions
+                  .Images,
+
+              allowsEditing:
+                true,
+
+              aspect:
+                [1, 1],
+
+              quality:
+                0.8,
+
+              // IMPORTANT
+              // No Base64
+              base64:
+                false,
+
+            });
+
+
+        if (
+          result.canceled ||
+          !result.assets ||
+          result.assets.length === 0
+        ) {
+
+          return;
+
+        }
+
+
+        const asset =
+          result.assets[0];
+
+
+        // =================================================
+        // Store Local URI
+        // =================================================
+
+        setSelectedAvatarUri(
+          asset.uri
+        );
+
+
+        // =================================================
+        // Show Image Immediately
+        // =================================================
+
+        setDoctor(
+          (previous) => ({
+            ...(previous || {}),
+            avatar:
+              asset.uri,
+          })
+        );
+
+
+      } catch (error) {
+
+        console.log(
+          'Profile image picker error:',
+          error
+        );
+
+
+        Alert.alert(
+          'Image Error',
+          error?.message ||
+            'Unable to select profile picture.'
+        );
+
+      }
+
+    };
+
+
+  // =================================================
+  // Save Doctor Changes
   // =================================================
 
   const handleSaveChanges =
     async () => {
-
-      // =================================================
-      // Doctor ID
-      // =================================================
 
       if (!doctorId) {
 
@@ -529,10 +674,6 @@ export default function Page16_DoctorDetailDoctor({
         return;
       }
 
-
-      // =================================================
-      // Exact Dates
-      // =================================================
 
       if (
         availableDates.length === 0
@@ -546,10 +687,6 @@ export default function Page16_DoctorDetailDoctor({
         return;
       }
 
-
-      // =================================================
-      // Time Slots
-      // =================================================
 
       if (
         availableTimeSlots.length === 0
@@ -570,17 +707,35 @@ export default function Page16_DoctorDetailDoctor({
 
 
         // =================================================
-        // Clean Exact Dates
+        // Allowed Current 7 Days
+        // =================================================
+
+        const allowedDates =
+          new Set(
+            daysData.map(
+              (item) =>
+                item.fullDate
+            )
+          );
+
+
+        // =================================================
+        // Clean Dates
         // =================================================
 
         const cleanDates = [
           ...new Set(
             availableDates
-              .map(
-                (date) =>
-                  String(date).trim()
+              .map((date) =>
+                String(date).trim()
               )
-              .filter(Boolean)
+              .filter(
+                (date) =>
+                  date &&
+                  allowedDates.has(
+                    date
+                  )
+              )
           ),
         ];
 
@@ -592,18 +747,29 @@ export default function Page16_DoctorDetailDoctor({
         const cleanTimeSlots = [
           ...new Set(
             availableTimeSlots
-              .map(
-                (time) =>
-                  String(time).trim()
+              .map((time) =>
+                String(time).trim()
               )
               .filter(Boolean)
           ),
         ];
 
 
+        if (
+          cleanDates.length === 0
+        ) {
+
+          Alert.alert(
+            'Select Available Dates',
+            'Please select at least one date from the current 7 days.'
+          );
+
+          return;
+        }
+
+
         // =================================================
-        // Create Days From Exact Dates
-        // For compatibility with old code
+        // Generate Days
         // =================================================
 
         const cleanDays = [
@@ -616,6 +782,7 @@ export default function Page16_DoctorDetailDoctor({
                     `${dateString}T00:00:00`
                   );
 
+
                 return weekDays[
                   date.getDay()
                 ];
@@ -626,54 +793,178 @@ export default function Page16_DoctorDetailDoctor({
         ];
 
 
-        console.log(
-          '================================='
-        );
+        // =================================================
+        // Upload Profile Image
+        // =================================================
 
-        console.log(
-          'Saving Doctor Details'
-        );
+        if (
+          selectedAvatarUri
+        ) {
 
-        console.log(
-          'Doctor ID:',
-          doctorId
-        );
+          try {
 
-        console.log(
-          'About:',
-          about
-        );
+            const formData =
+              new FormData();
 
-        console.log(
-          'Available Dates:',
-          cleanDates
-        );
 
-        console.log(
-          'Available Days:',
-          cleanDays
-        );
+            const filename =
+              selectedAvatarUri
+                .split('/')
+                .pop() ||
+              `doctor-${Date.now()}.jpg`;
 
-        console.log(
-          'Available Time Slots:',
-          cleanTimeSlots
-        );
 
-        console.log(
-          '================================='
-        );
+            const extension =
+              filename
+                .split('.')
+                .pop()
+                ?.toLowerCase();
+
+
+            let mimeType =
+              'image/jpeg';
+
+
+            if (
+              extension === 'png'
+            ) {
+
+              mimeType =
+                'image/png';
+
+            } else if (
+              extension === 'webp'
+            ) {
+
+              mimeType =
+                'image/webp';
+
+            }
+
+
+            formData.append(
+              'avatar',
+              {
+                uri:
+                  selectedAvatarUri,
+
+                name:
+                  filename,
+
+                type:
+                  mimeType,
+              }
+            );
+
+
+            console.log(
+              'Uploading doctor profile image...'
+            );
+
+
+            const imageResponse =
+              await fetch(
+                `${API_URL}/api/doctors/${doctorId}/avatar`,
+                {
+                  method:
+                    'POST',
+
+                  // IMPORTANT:
+                  // Do NOT manually set Content-Type.
+                  // React Native adds multipart boundary.
+
+                  body:
+                    formData,
+                }
+              );
+
+
+            const imageData =
+              await imageResponse.json();
+
+
+            if (
+              !imageResponse.ok
+            ) {
+
+              Alert.alert(
+                'Image Upload Failed',
+                imageData.message ||
+                  'Unable to upload profile image.'
+              );
+
+              return;
+            }
+
+
+            console.log(
+              'Doctor image uploaded:',
+              imageData.avatar
+            );
+
+
+            // =================================================
+            // Update Doctor With Server URL
+            // =================================================
+
+            if (
+              imageData.avatar
+            ) {
+
+              setDoctor(
+                (previous) => ({
+                  ...(previous || {}),
+                  avatar:
+                    imageData.avatar,
+                })
+              );
+
+            }
+
+
+            // =================================================
+            // Clear Temporary URI
+            // =================================================
+
+            setSelectedAvatarUri(
+              null
+            );
+
+
+          } catch (
+            imageError
+          ) {
+
+            console.log(
+              'Profile image upload error:',
+              imageError
+            );
+
+
+            Alert.alert(
+              'Image Upload Failed',
+              imageError?.message ||
+                'Unable to upload doctor profile image.'
+            );
+
+
+            return;
+
+          }
+
+        }
 
 
         // =================================================
-        // PUT Request
+        // Save Doctor Details
         // =================================================
 
         const response =
           await fetch(
             `${API_URL}/api/doctors/${doctorId}`,
             {
-
-              method: 'PUT',
+              method:
+                'PUT',
 
               headers: {
                 'Content-Type':
@@ -683,18 +974,14 @@ export default function Page16_DoctorDetailDoctor({
               body:
                 JSON.stringify({
 
-                  about:
-                    about,
+                  about,
 
-                  // Keep old field
                   availableDays:
                     cleanDays,
 
-                  // NEW exact dates
                   availableDates:
                     cleanDates,
 
-                  // Existing time slots
                   availableTimeSlots:
                     cleanTimeSlots,
 
@@ -708,81 +995,9 @@ export default function Page16_DoctorDetailDoctor({
           await response.json();
 
 
-        console.log(
-          'Save Response:',
-          data
-        );
-
-
-        // =================================================
-        // Success
-        // =================================================
-
-        if (response.ok) {
-
-          if (data.doctor) {
-
-            setDoctor(
-              data.doctor
-            );
-
-
-            // Update exact dates
-
-            setAvailableDates(
-              Array.isArray(
-                data.doctor.availableDates
-              )
-                ? data.doctor.availableDates
-                : []
-            );
-
-
-            // Update old days
-
-            setAvailableDays(
-              Array.isArray(
-                data.doctor.availableDays
-              )
-                ? data.doctor.availableDays
-                : []
-            );
-
-
-            // Update times
-
-            setAvailableTimeSlots(
-              Array.isArray(
-                data.doctor.availableTimeSlots
-              )
-                ? data.doctor.availableTimeSlots
-                : []
-            );
-
-          }
-
-
-          Alert.alert(
-            'Success',
-            'Doctor profile and availability updated successfully.',
-            [
-              {
-                text: 'OK',
-
-                onPress: () => {
-
-                  onNavigate(
-                    'Page15_DoctorHome'
-                  );
-
-                },
-
-              },
-            ]
-          );
-
-
-        } else {
+        if (
+          !response.ok
+        ) {
 
           Alert.alert(
             'Update Failed',
@@ -790,7 +1005,112 @@ export default function Page16_DoctorDetailDoctor({
               'Unable to update doctor details.'
           );
 
+          return;
         }
+
+
+        // =================================================
+        // Update Local State
+        // =================================================
+
+        if (
+          data.doctor
+        ) {
+
+          setDoctor(
+            data.doctor
+          );
+
+
+          const responseDates =
+            Array.isArray(
+              data.doctor
+                .availableDates
+            )
+              ? data.doctor
+                  .availableDates
+                  .map((date) =>
+                    String(date).trim()
+                  )
+                  .filter(
+                    (date) =>
+                      allowedDates.has(
+                        date
+                      )
+                  )
+              : cleanDates;
+
+
+          setAvailableDates([
+            ...new Set(
+              responseDates
+            ),
+          ]);
+
+
+          setAvailableDays(
+            Array.isArray(
+              data.doctor
+                .availableDays
+            )
+              ? data.doctor
+                  .availableDays
+              : cleanDays
+          );
+
+
+          setAvailableTimeSlots(
+            Array.isArray(
+              data.doctor
+                .availableTimeSlots
+            )
+              ? data.doctor
+                  .availableTimeSlots
+              : cleanTimeSlots
+          );
+
+
+          setAbout(
+            data.doctor.about ||
+              about
+          );
+
+        }
+
+
+        // =================================================
+        // Exit Edit Modes
+        // =================================================
+
+        setDateEditMode(
+          false
+        );
+
+        setTimeEditMode(
+          false
+        );
+
+
+        // =================================================
+        // Success
+        // =================================================
+
+        Alert.alert(
+          'Success',
+          'Doctor profile and availability updated successfully.',
+          [
+            {
+              text:
+                'OK',
+
+              onPress:
+                () =>
+                  onNavigate(
+                    'Page15_DoctorHome'
+                  ),
+            },
+          ]
+        );
 
 
       } catch (error) {
@@ -805,6 +1125,7 @@ export default function Page16_DoctorDetailDoctor({
           'Connection Error',
           'Cannot connect to the backend server. Make sure the backend is running.'
         );
+
 
       } finally {
 
@@ -828,13 +1149,18 @@ export default function Page16_DoctorDetailDoctor({
   // Doctor Image
   // =================================================
 
+  // IMPORTANT:
+  // No default Dr. Rishi image here.
+  // If doctor avatar is unavailable,
+  // the UI will show a neutral placeholder.
+
   const doctorImage =
     doctor?.avatar ||
     null;
 
 
   // =================================================
-  // Render
+  // UI
   // =================================================
 
   return (
@@ -848,25 +1174,18 @@ export default function Page16_DoctorDetailDoctor({
       <StatusBarMock />
 
 
-      {/* =================================================
-          Header
-      ================================================= */}
-
       <Header
-
         title="Doctor Detail"
-
         onBack={() =>
           onNavigate(
             'Page15_DoctorHome'
           )
         }
-
       />
 
 
       {/* =================================================
-          Loading
+          Loading Indicator
       ================================================= */}
 
       {loading && (
@@ -882,12 +1201,13 @@ export default function Page16_DoctorDetailDoctor({
             color="#5B92E5"
           />
 
+
           <Text
             style={
               styles.loadingText
             }
           >
-            Loading...
+            Updating...
           </Text>
 
         </View>
@@ -895,12 +1215,7 @@ export default function Page16_DoctorDetailDoctor({
       )}
 
 
-      {/* =================================================
-          Content
-      ================================================= */}
-
       <ScrollView
-
         contentContainerStyle={
           styles.content
         }
@@ -908,9 +1223,7 @@ export default function Page16_DoctorDetailDoctor({
         showsVerticalScrollIndicator={
           false
         }
-
       >
-
 
         {/* =================================================
             Doctor Header
@@ -928,32 +1241,59 @@ export default function Page16_DoctorDetailDoctor({
             }
           >
 
-            <Image
+            {/* =================================================
+                IMPORTANT CHANGE:
+                No dr_rishi.png fallback
+            ================================================= */}
 
-              source={
-                doctorImage
-                  ? {
-                      uri:
-                        doctorImage,
-                    }
-                  : require(
-                      '../../assets/dr_rishi.png'
-                    )
-              }
+            {doctorImage ? (
 
-              style={
-                styles.doctorImage
-              }
+              <Image
+                source={{
+                  uri:
+                    doctorImage,
+                }}
 
-              resizeMode="cover"
+                style={
+                  styles.doctorImage
+                }
 
-            />
+                resizeMode="cover"
+              />
 
+            ) : (
+
+              <View
+                style={
+                  styles.emptyDoctorImage
+                }
+              >
+
+                <Text
+                  style={
+                    styles.emptyDoctorImageText
+                  }
+                >
+                  👤
+                </Text>
+
+              </View>
+
+            )}
+
+
+            {/* Camera */}
 
             <TouchableOpacity
               style={
                 styles.cameraBadge
               }
+
+              onPress={
+                handlePickProfileImage
+              }
+
+              activeOpacity={0.8}
             >
 
               <Camera
@@ -987,10 +1327,16 @@ export default function Page16_DoctorDetailDoctor({
           }
         >
 
-          <View
+          <TouchableOpacity
             style={
               styles.editIconBtn
             }
+
+            onPress={
+              handleOpenAboutEditor
+            }
+
+            activeOpacity={0.7}
           >
 
             <Edit3
@@ -998,7 +1344,7 @@ export default function Page16_DoctorDetailDoctor({
               color="#1E293B"
             />
 
-          </View>
+          </TouchableOpacity>
 
 
           <Text
@@ -1015,12 +1361,8 @@ export default function Page16_DoctorDetailDoctor({
               styles.aboutText
             }
           >
-
-            {
-              about ||
-              'Loading doctor information...'
-            }
-
+            {about ||
+              'Loading doctor information...'}
           </Text>
 
         </View>
@@ -1036,18 +1378,38 @@ export default function Page16_DoctorDetailDoctor({
           }
         >
 
-          <View
+          <TouchableOpacity
             style={
               styles.editIconBtn
             }
+
+            onPress={() =>
+              setDateEditMode(
+                (value) =>
+                  !value
+              )
+            }
+
+            activeOpacity={0.7}
           >
 
-            <Edit3
-              size={18}
-              color="#1E293B"
-            />
+            {dateEditMode ? (
 
-          </View>
+              <Check
+                size={18}
+                color="#1E293B"
+              />
+
+            ) : (
+
+              <Edit3
+                size={18}
+                color="#1E293B"
+              />
+
+            )}
+
+          </TouchableOpacity>
 
 
           <Text
@@ -1060,13 +1422,10 @@ export default function Page16_DoctorDetailDoctor({
 
 
           <ScrollView
-
             horizontal
-
             showsHorizontalScrollIndicator={
               false
             }
-
           >
 
             <View
@@ -1087,18 +1446,18 @@ export default function Page16_DoctorDetailDoctor({
                   return (
 
                     <TouchableOpacity
-
                       key={
                         item.fullDate
                       }
 
                       style={[
-
                         styles.datePill,
 
                         isSelected &&
                           styles.selectedDatePill,
 
+                        !dateEditMode &&
+                          styles.disabledDatePill,
                       ]}
 
                       onPress={() =>
@@ -1107,49 +1466,38 @@ export default function Page16_DoctorDetailDoctor({
                         )
                       }
 
-                      activeOpacity={
-                        0.8
+                      disabled={
+                        !dateEditMode
                       }
 
+                      activeOpacity={0.8}
                     >
 
                       <Text
-
                         style={[
-
                           styles.dayText,
 
                           isSelected &&
                             styles.selectedDayText,
-
                         ]}
-
                       >
-
                         {
                           item.day
                         }
-
                       </Text>
 
 
                       <Text
-
                         style={[
-
                           styles.dateNumberText,
 
                           isSelected &&
                             styles.selectedDateNumberText,
-
                         ]}
-
                       >
-
                         {
                           item.date
                         }
-
                       </Text>
 
                     </TouchableOpacity>
@@ -1162,6 +1510,20 @@ export default function Page16_DoctorDetailDoctor({
             </View>
 
           </ScrollView>
+
+
+          {dateEditMode && (
+
+            <Text
+              style={
+                styles.editHint
+              }
+            >
+              Select or remove available
+              dates, then tap ✓.
+            </Text>
+
+          )}
 
         </View>
 
@@ -1176,18 +1538,38 @@ export default function Page16_DoctorDetailDoctor({
           }
         >
 
-          <View
+          <TouchableOpacity
             style={
               styles.editIconBtn
             }
+
+            onPress={() =>
+              setTimeEditMode(
+                (value) =>
+                  !value
+              )
+            }
+
+            activeOpacity={0.7}
           >
 
-            <Edit3
-              size={18}
-              color="#1E293B"
-            />
+            {timeEditMode ? (
 
-          </View>
+              <Check
+                size={18}
+                color="#1E293B"
+              />
+
+            ) : (
+
+              <Edit3
+                size={18}
+                color="#1E293B"
+              />
+
+            )}
+
+          </TouchableOpacity>
 
 
           <Text
@@ -1217,18 +1599,18 @@ export default function Page16_DoctorDetailDoctor({
                 return (
 
                   <TouchableOpacity
-
                     key={
                       time
                     }
 
                     style={[
-
                       styles.timeSlot,
 
                       isSelected &&
                         styles.selectedTimeSlot,
 
+                      !timeEditMode &&
+                        styles.disabledTimeSlot,
                     ]}
 
                     onPress={() =>
@@ -1237,27 +1619,22 @@ export default function Page16_DoctorDetailDoctor({
                       )
                     }
 
-                    activeOpacity={
-                      0.8
+                    disabled={
+                      !timeEditMode
                     }
 
+                    activeOpacity={0.8}
                   >
 
                     <Text
-
                       style={[
-
                         styles.timeText,
 
                         isSelected &&
                           styles.selectedTimeText,
-
                       ]}
-
                     >
-
                       {time}
-
                     </Text>
 
                   </TouchableOpacity>
@@ -1269,6 +1646,20 @@ export default function Page16_DoctorDetailDoctor({
 
           </View>
 
+
+          {timeEditMode && (
+
+            <Text
+              style={
+                styles.editHint
+              }
+            >
+              Select or remove available
+              time slots, then tap ✓.
+            </Text>
+
+          )}
+
         </View>
 
 
@@ -1277,14 +1668,11 @@ export default function Page16_DoctorDetailDoctor({
         ================================================= */}
 
         <TouchableOpacity
-
           style={[
-
             styles.saveButton,
 
             loading &&
               styles.disabledButton,
-
           ]}
 
           onPress={
@@ -1295,20 +1683,14 @@ export default function Page16_DoctorDetailDoctor({
             loading
           }
 
-          activeOpacity={
-            0.85
-          }
-
+          activeOpacity={0.85}
         >
 
           {loading ? (
 
             <ActivityIndicator
-
               size="small"
-
               color="#FFFFFF"
-
             />
 
           ) : (
@@ -1328,6 +1710,136 @@ export default function Page16_DoctorDetailDoctor({
 
       </ScrollView>
 
+
+      {/* =================================================
+          About Modal
+      ================================================= */}
+
+      <Modal
+        visible={
+          aboutModalVisible
+        }
+
+        transparent
+
+        animationType="fade"
+
+        onRequestClose={() =>
+          setAboutModalVisible(
+            false
+          )
+        }
+      >
+
+        <KeyboardAvoidingView
+          style={
+            styles.modalOverlay
+          }
+
+          behavior={
+            Platform.OS === 'ios'
+              ? 'padding'
+              : undefined
+          }
+        >
+
+          <View
+            style={
+              styles.modalCard
+            }
+          >
+
+            <Text
+              style={
+                styles.modalTitle
+              }
+            >
+              Edit About
+            </Text>
+
+
+            <TextInput
+              value={
+                aboutDraft
+              }
+
+              onChangeText={
+                setAboutDraft
+              }
+
+              multiline
+
+              textAlignVertical="top"
+
+              placeholder="Enter information about the doctor"
+
+              placeholderTextColor="#94A3B8"
+
+              style={
+                styles.aboutInput
+              }
+
+              maxLength={500}
+            />
+
+
+            <View
+              style={
+                styles.modalActions
+              }
+            >
+
+              <TouchableOpacity
+                style={
+                  styles.cancelButton
+                }
+
+                onPress={() =>
+                  setAboutModalVisible(
+                    false
+                  )
+                }
+              >
+
+                <Text
+                  style={
+                    styles.cancelButtonText
+                  }
+                >
+                  Cancel
+                </Text>
+
+              </TouchableOpacity>
+
+
+              <TouchableOpacity
+                style={
+                  styles.modalSaveButton
+                }
+
+                onPress={
+                  handleSaveAboutDraft
+                }
+              >
+
+                <Text
+                  style={
+                    styles.modalSaveButtonText
+                  }
+                >
+                  Save
+                </Text>
+
+              </TouchableOpacity>
+
+            </View>
+
+          </View>
+
+        </KeyboardAvoidingView>
+
+      </Modal>
+
     </SafeAreaView>
 
   );
@@ -1339,424 +1851,352 @@ export default function Page16_DoctorDetailDoctor({
 // Styles
 // =================================================
 
-const styles = StyleSheet.create({
-
-  container: {
-
-    flex: 1,
-
-    backgroundColor:
-      '#FFFFFF',
-
-  },
-
-
-  content: {
-
-    paddingHorizontal: 20,
-
-    paddingTop: 10,
-
-    paddingBottom: 30,
-
-  },
-
-
-  loadingContainer: {
-
-    flexDirection:
-      'row',
-
-    justifyContent:
-      'center',
-
-    alignItems:
-      'center',
-
-    paddingVertical: 8,
-
-  },
-
-
-  loadingText: {
-
-    marginLeft: 8,
-
-    fontSize: 12,
-
-    color:
-      '#64748B',
-
-  },
-
-
-  doctorHeader: {
-
-    flexDirection:
-      'row',
-
-    alignItems:
-      'center',
-
-    marginBottom: 20,
-
-  },
-
-
-  imageWrapper: {
-
-    position:
-      'relative',
-
-    marginRight: 16,
-
-  },
-
-
-  doctorImage: {
-
-    width: 100,
-
-    height: 100,
-
-    borderRadius: 16,
-
-  },
-
-
-  cameraBadge: {
-
-    position:
-      'absolute',
-
-    bottom: -4,
-
-    right: -4,
-
-    width: 26,
-
-    height: 26,
-
-    borderRadius: 13,
-
-    backgroundColor:
-      '#1E293B',
-
-    justifyContent:
-      'center',
-
-    alignItems:
-      'center',
-
-    borderWidth: 2,
-
-    borderColor:
-      '#FFFFFF',
-
-  },
-
-
-  doctorName: {
-
-    fontSize: 22,
-
-    fontWeight:
-      '800',
-
-    color:
-      '#000000',
-
-  },
-
-
-  cardSection: {
-
-    backgroundColor:
-      '#EAEFFE',
-
-    borderRadius: 20,
-
-    padding: 16,
-
-    marginBottom: 16,
-
-    position:
-      'relative',
-
-  },
-
-
-  editIconBtn: {
-
-    position:
-      'absolute',
-
-    top: 14,
-
-    right: 14,
-
-    zIndex: 10,
-
-  },
-
-
-  sectionTitle: {
-
-    fontSize: 18,
-
-    fontWeight:
-      '800',
-
-    color:
-      '#000000',
-
-    marginBottom: 12,
-
-  },
-
-
-  aboutText: {
-
-    fontSize: 12,
-
-    color:
-      '#475569',
-
-    lineHeight: 18,
-
-    paddingRight: 20,
-
-  },
-
-
-  dateContainer: {
-
-    flexDirection:
-      'row',
-
-    alignItems:
-      'center',
-
-    paddingVertical: 4,
-
-  },
-
-
-  datePill: {
-
-    width: 54,
-
-    height: 68,
-
-    borderRadius: 16,
-
-    justifyContent:
-      'center',
-
-    alignItems:
-      'center',
-
-    marginRight: 8,
-
-    backgroundColor:
-      '#FFFFFF',
-
-    borderWidth: 1,
-
-    borderColor:
-      '#E2E8F0',
-
-  },
-
-
-  selectedDatePill: {
-
-    backgroundColor:
-      '#5B92E5',
-
-    borderColor:
-      '#5B92E5',
-
-  },
-
-
-  dayText: {
-
-    fontSize: 11,
-
-    color:
-      '#64748B',
-
-    marginBottom: 2,
-
-  },
-
-
-  selectedDayText: {
-
-    color:
-      '#FFFFFF',
-
-    fontWeight:
-      '600',
-
-  },
-
-
-  dateNumberText: {
-
-    fontSize: 17,
-
-    fontWeight:
-      '800',
-
-    color:
-      '#1E293B',
-
-  },
-
-
-  selectedDateNumberText: {
-
-    color:
-      '#FFFFFF',
-
-  },
-
-
-  timeGrid: {
-
-    flexDirection:
-      'row',
-
-    flexWrap:
-      'wrap',
-
-    justifyContent:
-      'space-between',
-
-    paddingTop: 8,
-
-  },
-
-
-  timeSlot: {
-
-    width: '30%',
-
-    height: 40,
-
-    borderRadius: 20,
-
-    borderWidth: 1,
-
-    borderColor:
-      '#93C5FD',
-
-    justifyContent:
-      'center',
-
-    alignItems:
-      'center',
-
-    marginBottom: 10,
-
-    backgroundColor:
-      '#FFFFFF',
-
-  },
-
-
-  selectedTimeSlot: {
-
-    backgroundColor:
-      '#5B92E5',
-
-    borderColor:
-      '#5B92E5',
-
-  },
-
-
-  timeText: {
-
-    fontSize: 11,
-
-    fontWeight:
-      '600',
-
-    color:
-      '#3B82F6',
-
-  },
-
-
-  selectedTimeText: {
-
-    color:
-      '#FFFFFF',
-
-    fontWeight:
-      '700',
-
-  },
-
-
-  saveButton: {
-
-    backgroundColor:
-      '#5B92E5',
-
-    height: 52,
-
-    borderRadius: 26,
-
-    justifyContent:
-      'center',
-
-    alignItems:
-      'center',
-
-    marginTop: 10,
-
-    shadowColor:
-      '#5B92E5',
-
-    shadowOffset: {
-
-      width: 0,
-
-      height: 4,
-
+const styles =
+  StyleSheet.create({
+
+    container: {
+      flex: 1,
+      backgroundColor: '#FFFFFF',
     },
 
-    shadowOpacity:
-      0.3,
 
-    shadowRadius: 6,
-
-    elevation: 4,
-
-  },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 10,
+      paddingBottom: 30,
+    },
 
 
-  disabledButton: {
+    loadingContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
 
-    opacity: 0.7,
 
-  },
+    loadingText: {
+      marginLeft: 8,
+      fontSize: 12,
+      color: '#64748B',
+    },
 
 
-  saveButtonText: {
+    doctorHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
 
-    color:
-      '#FFFFFF',
 
-    fontSize: 16,
+    imageWrapper: {
+      position: 'relative',
+      marginRight: 16,
+    },
 
-    fontWeight:
-      '700',
 
-  },
+    doctorImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 16,
+    },
 
-});
+
+    // =================================================
+    // Empty Image Placeholder
+    // =================================================
+
+    emptyDoctorImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 16,
+      backgroundColor: '#E2E8F0',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+
+    emptyDoctorImageText: {
+      fontSize: 38,
+      opacity: 0.5,
+    },
+
+
+    cameraBadge: {
+      position: 'absolute',
+      bottom: -4,
+      right: -4,
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: '#1E293B',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: '#FFFFFF',
+    },
+
+
+    doctorName: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: '#000000',
+    },
+
+
+    cardSection: {
+      backgroundColor: '#EAEFFE',
+      borderRadius: 20,
+      padding: 16,
+      marginBottom: 16,
+      position: 'relative',
+    },
+
+
+    editIconBtn: {
+      position: 'absolute',
+      top: 14,
+      right: 14,
+      zIndex: 10,
+      width: 28,
+      height: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: '#000000',
+      marginBottom: 12,
+    },
+
+
+    aboutText: {
+      fontSize: 12,
+      color: '#475569',
+      lineHeight: 18,
+      paddingRight: 20,
+    },
+
+
+    dateContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 4,
+    },
+
+
+    datePill: {
+      width: 54,
+      height: 68,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 8,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+    },
+
+
+    selectedDatePill: {
+      backgroundColor: '#5B92E5',
+      borderColor: '#5B92E5',
+    },
+
+
+    disabledDatePill: {
+      opacity: 1,
+    },
+
+
+    dayText: {
+      fontSize: 11,
+      color: '#64748B',
+      marginBottom: 2,
+    },
+
+
+    selectedDayText: {
+      color: '#FFFFFF',
+      fontWeight: '600',
+    },
+
+
+    dateNumberText: {
+      fontSize: 17,
+      fontWeight: '800',
+      color: '#1E293B',
+    },
+
+
+    selectedDateNumberText: {
+      color: '#FFFFFF',
+    },
+
+
+    timeGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      paddingTop: 8,
+    },
+
+
+    timeSlot: {
+      width: '30%',
+      height: 40,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: '#93C5FD',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 10,
+      backgroundColor: '#FFFFFF',
+    },
+
+
+    selectedTimeSlot: {
+      backgroundColor: '#5B92E5',
+      borderColor: '#5B92E5',
+    },
+
+
+    disabledTimeSlot: {
+      opacity: 1,
+    },
+
+
+    timeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: '#3B82F6',
+    },
+
+
+    selectedTimeText: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+    },
+
+
+    editHint: {
+      marginTop: 2,
+      fontSize: 10,
+      color: '#64748B',
+    },
+
+
+    saveButton: {
+      backgroundColor: '#5B92E5',
+      height: 52,
+      borderRadius: 26,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 10,
+      shadowColor: '#5B92E5',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 4,
+    },
+
+
+    disabledButton: {
+      opacity: 0.7,
+    },
+
+
+    saveButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
+
+
+    modalOverlay: {
+      flex: 1,
+      backgroundColor:
+        'rgba(0,0,0,0.45)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+    },
+
+
+    modalCard: {
+      width: '100%',
+      maxWidth: 420,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 22,
+      padding: 20,
+    },
+
+
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: '#0F172A',
+      marginBottom: 14,
+    },
+
+
+    aboutInput: {
+      minHeight: 140,
+      borderWidth: 1,
+      borderColor: '#CBD5E1',
+      borderRadius: 14,
+      padding: 14,
+      fontSize: 14,
+      color: '#0F172A',
+      backgroundColor: '#F8FAFC',
+    },
+
+
+    modalActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 10,
+      marginTop: 16,
+    },
+
+
+    cancelButton: {
+      height: 44,
+      paddingHorizontal: 18,
+      borderRadius: 22,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#E2E8F0',
+    },
+
+
+    cancelButtonText: {
+      color: '#334155',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+
+
+    modalSaveButton: {
+      height: 44,
+      paddingHorizontal: 22,
+      borderRadius: 22,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#5B92E5',
+    },
+
+
+    modalSaveButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+
+  });

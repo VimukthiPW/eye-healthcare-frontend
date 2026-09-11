@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {
   View,
   Text,
@@ -19,24 +20,13 @@ export default function Page10_ReportDetail({
   onNavigate,
   reportData,
 }) {
-
-  // =================================================
-  // Get Report Data
-  // =================================================
-
   const report = reportData || {};
 
   const condition =
     report.condition || 'No diagnosis';
 
-  const confidence =
-    report.confidence || '0%';
-
   const imageUri =
     report.imageUri || null;
-
-  const probabilities =
-    report.probabilities || {};
 
   const patientName =
     report.patientName || 'John Doe';
@@ -45,33 +35,84 @@ export default function Page10_ReportDetail({
     report.patientId || 'P123456';
 
   const reportDate =
-    report.date || 'Aug 24, 2026';
+    report.date || new Date().toLocaleDateString();
 
+  const getMeaningText = () => {
+    if (condition === 'Cataract') {
+      return 'The result may indicate signs associated with cataract. Please consult an eye care professional for a complete examination and confirmation.';
+    }
 
-  // =================================================
-  // Open Send Report Page
-  // =================================================
+    if (condition === 'Conjunctivitis') {
+      return 'The result may indicate signs associated with conjunctivitis. Please consult an eye care professional for proper examination and advice.';
+    }
+
+    if (condition === 'Healthy') {
+      return 'The image appears consistent with a healthy eye based on the AI screening result.';
+    }
+
+    return 'The screening result could not be clearly determined. Please upload a clear eye image or consult an eye care professional.';
+  };
+
+  const getConditionColor = () => {
+    if (condition === 'Cataract') {
+      return '#EF4444';
+    }
+
+    if (condition === 'Conjunctivitis') {
+      return '#F59E0B';
+    }
+
+    if (condition === 'Healthy') {
+      return '#22C55E';
+    }
+
+    return '#64748B';
+  };
+
+  const getNextSteps = () => {
+    if (condition === 'Cataract') {
+      return [
+        'Book an appointment with an eye specialist.',
+        'Have a complete eye examination.',
+        'Follow the advice given by your healthcare professional.',
+      ];
+    }
+
+    if (condition === 'Conjunctivitis') {
+      return [
+        'Consult an eye care professional.',
+        'Avoid touching or rubbing your eyes.',
+        'Follow professional medical advice if treatment is required.',
+      ];
+    }
+
+    if (condition === 'Healthy') {
+      return [
+        'Continue regular eye care.',
+        'Maintain good eye hygiene.',
+        'Have regular eye examinations when recommended.',
+      ];
+    }
+
+    return [
+      'Upload a clear eye image for screening.',
+      'If you have eye symptoms, consult an eye care professional.',
+    ];
+  };
 
   const handleShareReport = () => {
-
     onNavigate(
       'Page11_SendReport',
       {
         reportData: report,
       }
     );
-
   };
-
 
   return (
     <SafeAreaView style={styles.container}>
 
       <StatusBarMock />
-
-      {/* =================================================
-          Header
-      ================================================= */}
 
       <Header
         title="Report"
@@ -80,213 +121,157 @@ export default function Page10_ReportDetail({
         }
       />
 
-
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
 
-
-        {/* =================================================
-            Report Card
-        ================================================= */}
-
         <View style={styles.reportCard}>
 
           <Text style={styles.cardHeader}>
-            EYE HEALTH SCREENING REPORT
+            EYE HEALTH REPORT
           </Text>
 
+          <View style={styles.patientSection}>
 
-          {/* =================================================
-              Patient Name
-          ================================================= */}
-
-          <View style={styles.infoRow}>
-
-            <Text style={styles.infoText}>
-
-              <Text style={styles.label}>
-                Patient Name :{' '}
-              </Text>
-
-              {patientName}
-
+            <Text style={styles.sectionTitle}>
+              Patient Information
             </Text>
 
-          </View>
+            <View style={styles.infoRow}>
 
-
-          {/* =================================================
-              Patient ID
-          ================================================= */}
-
-          <View style={styles.infoRow}>
-
-            <Text style={styles.infoText}>
-
-              <Text style={styles.label}>
-                Patient ID :{' '}
+              <Text style={styles.infoLabel}>
+                Patient Name
               </Text>
 
-              {patientId}
-
-            </Text>
-
-          </View>
-
-
-          {/* =================================================
-              Date
-          ================================================= */}
-
-          <View style={styles.infoRow}>
-
-            <Text style={styles.infoText}>
-
-              <Text style={styles.label}>
-                Date :{' '}
+              <Text style={styles.infoValue}>
+                {patientName}
               </Text>
 
-              {reportDate}
+            </View>
 
-            </Text>
+            <View style={styles.infoRow}>
+
+              <Text style={styles.infoLabel}>
+                Patient ID
+              </Text>
+
+              <Text style={styles.infoValue}>
+                {patientId}
+              </Text>
+
+            </View>
+
+            <View style={styles.infoRow}>
+
+              <Text style={styles.infoLabel}>
+                Date
+              </Text>
+
+              <Text style={styles.infoValue}>
+                {reportDate}
+              </Text>
+
+            </View>
 
           </View>
-
-
-          {/* =================================================
-              Selected Eye Image
-          ================================================= */}
 
           {imageUri && (
-
             <View style={styles.imageSection}>
 
-              <Text style={styles.imageLabel}>
-                Analyzed Eye Image
+              <Text style={styles.sectionTitle}>
+                Examined Eye Image
               </Text>
 
               <Image
                 source={{
                   uri: imageUri,
                 }}
-
                 style={styles.reportImage}
-
                 resizeMode="cover"
               />
 
             </View>
-
           )}
 
+          <View style={styles.diagnosisSection}>
 
-          {/* =================================================
-              Condition
-          ================================================= */}
-
-          <View style={styles.infoRow}>
-
-            <Text style={styles.infoText}>
-
-              <Text style={styles.label}>
-                Condition :{' '}
-              </Text>
-
-              {condition}
-
+            <Text style={styles.sectionTitle}>
+              Diagnosis Result
             </Text>
 
-          </View>
+            <View
+              style={[
+                styles.conditionBox,
+                {
+                  borderLeftColor:
+                    getConditionColor(),
+                },
+              ]}
+            >
 
-
-          {/* =================================================
-              Confidence
-          ================================================= */}
-
-          <View style={styles.infoRow}>
-
-            <Text style={styles.infoText}>
-
-              <Text style={styles.label}>
-                Confidence :{' '}
+              <Text
+                style={[
+                  styles.conditionText,
+                  {
+                    color:
+                      getConditionColor(),
+                  },
+                ]}
+              >
+                {condition}
               </Text>
-
-              {confidence}
-
-            </Text>
-
-          </View>
-
-
-          {/* =================================================
-              Prediction Probabilities
-          ================================================= */}
-
-          {Object.keys(probabilities).length > 0 && (
-
-            <View style={styles.probabilitySection}>
-
-              <Text style={styles.probabilityTitle}>
-                Prediction Probabilities
-              </Text>
-
-
-              {/* Cataract */}
-
-              <View style={styles.probabilityRow}>
-
-                <Text style={styles.probabilityName}>
-                  Cataract
-                </Text>
-
-                <Text style={styles.probabilityValue}>
-                  {probabilities.Cataract ?? 0}%
-                </Text>
-
-              </View>
-
-
-              {/* Conjunctivitis */}
-
-              <View style={styles.probabilityRow}>
-
-                <Text style={styles.probabilityName}>
-                  Conjunctivitis
-                </Text>
-
-                <Text style={styles.probabilityValue}>
-                  {probabilities.Conjunctivitis ?? 0}%
-                </Text>
-
-              </View>
-
-
-              {/* Healthy */}
-
-              <View style={styles.probabilityRow}>
-
-                <Text style={styles.probabilityName}>
-                  Healthy
-                </Text>
-
-                <Text style={styles.probabilityValue}>
-                  {probabilities.Healthy ?? 0}%
-                </Text>
-
-              </View>
 
             </View>
 
-          )}
+          </View>
+
+          <View style={styles.infoBox}>
+
+            <Text style={styles.infoTitle}>
+              What does this mean?
+            </Text>
+
+            <Text style={styles.infoText}>
+              {getMeaningText()}
+            </Text>
+
+          </View>
+
+          <View style={styles.nextStepsBox}>
+
+            <Text style={styles.infoTitle}>
+              Recommended Next Steps
+            </Text>
+
+            {getNextSteps().map(
+              (step, index) => (
+
+                <View
+                  key={index}
+                  style={styles.stepRow}
+                >
+
+                  <Text
+                    style={styles.stepBullet}
+                  >
+                    •
+                  </Text>
+
+                  <Text
+                    style={styles.stepText}
+                  >
+                    {step}
+                  </Text>
+
+                </View>
+
+              )
+            )}
+
+          </View>
 
         </View>
-
-
-        {/* =================================================
-            Share / Send Button
-        ================================================= */}
 
         <TouchableOpacity
           style={styles.shareButton}
@@ -306,33 +291,22 @@ export default function Page10_ReportDetail({
 
         </TouchableOpacity>
 
-
       </ScrollView>
-
-
-      {/* =================================================
-          Bottom Navigation
-      ================================================= */}
 
       <BottomNavBar
         activeTab="Reports"
-
         onTabSelect={(tab) => {
 
           if (tab === 'Home') {
-
             onNavigate(
               'Page05_PatientHome'
             );
-
           }
 
           if (tab === 'Profile') {
-
             onNavigate(
               'Page14_Profile'
             );
-
           }
 
         }}
@@ -343,10 +317,6 @@ export default function Page10_ReportDetail({
 }
 
 
-// =================================================
-// Styles
-// =================================================
-
 const styles = StyleSheet.create({
 
   container: {
@@ -354,197 +324,176 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 30,
     alignItems: 'center',
   },
 
-
-  // =================================================
-  // Report Card
-  // =================================================
-
   reportCard: {
     width: '100%',
-
     backgroundColor: '#EAEFFE',
-
-    borderRadius: 24,
-
-    paddingHorizontal: 20,
-
-    paddingVertical: 24,
-
-    marginBottom: 30,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+    marginBottom: 20,
   },
 
-
   cardHeader: {
-    fontSize: 16,
-
+    fontSize: 17,
     fontWeight: '800',
-
     color: '#0F172A',
-
-    marginBottom: 18,
-
+    textAlign: 'center',
+    marginBottom: 20,
     letterSpacing: 0.5,
   },
 
+  patientSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
 
-  infoRow: {
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
     marginBottom: 12,
   },
 
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
 
-  infoText: {
-    fontSize: 16,
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
 
+  infoValue: {
+    fontSize: 13,
     fontWeight: '700',
-
     color: '#334155',
+    maxWidth: '60%',
+    textAlign: 'right',
   },
-
-
-  label: {
-    fontWeight: '800',
-
-    color: '#475569',
-  },
-
-
-  // =================================================
-  // Image
-  // =================================================
 
   imageSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
     alignItems: 'center',
-
-    marginVertical: 10,
-
-    marginBottom: 18,
+    marginBottom: 14,
   },
 
+  reportImage: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+  },
 
-  imageLabel: {
-    fontSize: 14,
+  diagnosisSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
 
-    fontWeight: '700',
+  conditionBox: {
+    borderLeftWidth: 5,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
 
-    color: '#475569',
+  conditionText: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
 
+  infoBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+
+  infoTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E293B',
     marginBottom: 8,
   },
 
-
-  reportImage: {
-    width: 130,
-
-    height: 130,
-
-    borderRadius: 65,
-  },
-
-
-  // =================================================
-  // Probabilities
-  // =================================================
-
-  probabilitySection: {
-    backgroundColor: '#FFFFFF',
-
-    borderRadius: 12,
-
-    padding: 14,
-
-    marginTop: 8,
-  },
-
-
-  probabilityTitle: {
-    fontSize: 14,
-
-    fontWeight: '800',
-
-    color: '#0F172A',
-
-    marginBottom: 10,
-  },
-
-
-  probabilityRow: {
-    flexDirection: 'row',
-
-    justifyContent: 'space-between',
-
-    marginVertical: 4,
-  },
-
-
-  probabilityName: {
+  infoText: {
     fontSize: 13,
-
-    fontWeight: '600',
-
+    lineHeight: 21,
+    fontWeight: '500',
     color: '#475569',
   },
 
-
-  probabilityValue: {
-    fontSize: 13,
-
-    fontWeight: '800',
-
-    color: '#334155',
+  nextStepsBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
   },
 
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 7,
+  },
 
-  // =================================================
-  // Share Button
-  // =================================================
+  stepBullet: {
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: '800',
+    color: '#5B92E5',
+    marginRight: 8,
+  },
+
+  stepText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: '#475569',
+  },
 
   shareButton: {
     flexDirection: 'row',
-
     alignItems: 'center',
-
+    justifyContent: 'center',
     backgroundColor: '#5B92E5',
-
     paddingHorizontal: 28,
-
     paddingVertical: 12,
-
     borderRadius: 12,
-
+    width: '65%',
     shadowColor: '#5B92E5',
-
     shadowOffset: {
       width: 0,
-
       height: 4,
     },
-
     shadowOpacity: 0.3,
-
     shadowRadius: 6,
-
     elevation: 4,
   },
-
 
   sendIcon: {
     marginRight: 10,
   },
 
-
   shareButtonText: {
     color: '#FFFFFF',
-
     fontSize: 16,
-
     fontWeight: '700',
   },
 

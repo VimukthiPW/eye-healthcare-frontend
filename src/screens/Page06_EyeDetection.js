@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import {
   View,
@@ -13,209 +13,135 @@ import {
 } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import StatusBarMock from '../components/StatusBarMock';
 import Header from '../components/Header';
 import BottomNavBar from '../components/BottomNavBar';
 
-
-// =================================================
-// Backend API
-// =================================================
-
 const API_URL = 'https://eye-healthcare-backend.vercel.app';
 
+export default function Page06_EyeDetection({ onNavigate }) {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSavingReport, setIsSavingReport] = useState(false);
+  const [result, setResult] = useState(null);
 
-// =================================================
-// Page
-// =================================================
+  const [patientName, setPatientName] = useState('');
+  const [patientId, setPatientId] = useState('');
 
-export default function Page06_EyeDetection({
-  onNavigate,
-}) {
+  useEffect(() => {
+    const loadPatientDetails = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('user');
 
-  // =================================================
-  // State
-  // =================================================
+        if (!storedUser) {
+          console.log('No stored patient found.');
+          return;
+        }
 
-  const [selectedFile, setSelectedFile] =
-    useState(null);
+        const user = JSON.parse(storedUser);
 
-  const [isAnalyzing, setIsAnalyzing] =
-    useState(false);
+        const actualName =
+          user.name ||
+          user.fullName ||
+          user.username ||
+          'Patient';
 
-  const [isSavingReport, setIsSavingReport] =
-    useState(false);
+        const actualId =
+          user._id ||
+          user.id ||
+          user.userId ||
+          '';
 
-  const [result, setResult] =
-    useState(null);
+        setPatientName(actualName);
+        setPatientId(actualId);
 
+        console.log('Patient Name:', actualName);
+        console.log('Patient ID:', actualId);
+      } catch (error) {
+        console.log(
+          'PATIENT DETAILS ERROR:',
+          error
+        );
+      }
+    };
 
-  // =================================================
-  // Choose Image
-  // =================================================
+    loadPatientDetails();
+  }, []);
 
   const handleChooseFile = async () => {
-
     try {
-
-      console.log(
-        'Opening image picker...'
-      );
-
-
-      // -------------------------------------------------
-      // Permission
-      // -------------------------------------------------
-
       const permission =
-        await ImagePicker
-          .requestMediaLibraryPermissionsAsync();
-
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-
         Alert.alert(
           'Permission Required',
           'Please allow photo access to select an eye image.'
         );
-
         return;
       }
-
-
-      // -------------------------------------------------
-      // Open Gallery
-      // -------------------------------------------------
 
       const pickerResult =
-        await ImagePicker
-          .launchImageLibraryAsync({
-
-            mediaTypes:
-              ImagePicker.MediaTypeOptions.Images,
-
-            allowsEditing: false,
-
-            quality: 1,
-
-          });
-
-
-      console.log(
-        'Image picker result:',
-        pickerResult
-      );
-
-
-      // -------------------------------------------------
-      // Cancelled
-      // -------------------------------------------------
+        await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 1,
+        });
 
       if (pickerResult.canceled) {
-
         return;
       }
-
-
-      // -------------------------------------------------
-      // Check Asset
-      // -------------------------------------------------
 
       if (
         !pickerResult.assets ||
         pickerResult.assets.length === 0
       ) {
-
         Alert.alert(
           'No Image',
           'No image was selected.'
         );
-
         return;
       }
 
-
-      const asset =
-        pickerResult.assets[0];
-
-
-      // -------------------------------------------------
-      // Save Image
-      // -------------------------------------------------
+      const asset = pickerResult.assets[0];
 
       setSelectedFile({
-
         name:
           asset.fileName ||
           'selected_eye_image.jpg',
-
-        uri:
-          asset.uri,
-
+        uri: asset.uri,
         type:
           asset.mimeType ||
           'image/jpeg',
-
       });
 
-
-      // Clear old result
       setResult(null);
-
-
     } catch (error) {
-
       console.log(
         'IMAGE PICKER ERROR:',
         error
       );
 
-
       Alert.alert(
         'Image Picker Error',
         error?.message ||
-        'Unable to select image.'
+          'Unable to select image.'
       );
-
     }
-
   };
 
-
-  // =================================================
-  // Save Report To MongoDB
-  // =================================================
-
-  const saveReportToDatabase = async (
-    prediction
-  ) => {
-
+  const saveReportToDatabase = async (prediction) => {
     try {
-
       setIsSavingReport(true);
 
-
-      console.log(
-        '================================='
-      );
-
-      console.log(
-        'Saving report to MongoDB...'
-      );
-
-
-      // -------------------------------------------------
-      // Prepare data
-      // -------------------------------------------------
-
       const reportData = {
-
         patientName:
-          'John Doe',
+          patientName || 'Patient',
 
         patientId:
-          'P123456',
+          patientId || '',
 
         title:
           'Eye Health Screening Report',
@@ -230,7 +156,6 @@ export default function Page06_EyeDetection({
           Number(prediction.confidence) || 0,
 
         probabilities: {
-
           Cataract:
             Number(
               prediction.probabilities?.Cataract || 0
@@ -245,149 +170,73 @@ export default function Page06_EyeDetection({
             Number(
               prediction.probabilities?.Healthy || 0
             ),
-
         },
-
       };
 
-
       console.log(
-        'Report data:',
-        reportData
+        'Saving report for patient:',
+        patientName
       );
 
+      const response = await fetch(
+        `${API_URL}/api/reports/analyze`,
+        {
+          method: 'POST',
 
-      // -------------------------------------------------
-      // Send to Backend
-      // -------------------------------------------------
+          headers: {
+            'Content-Type':
+              'application/json',
 
-      const response =
-        await fetch(
-          `${API_URL}/api/reports/analyze`,
-          {
+            Accept:
+              'application/json',
+          },
 
-            method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json',
-
-              Accept:
-                'application/json',
-            },
-
-            body:
-              JSON.stringify(
-                reportData
-              ),
-
-          }
-        );
-
-
-      console.log(
-        'Report save status:',
-        response.status
+          body:
+            JSON.stringify(reportData),
+        }
       );
-
-
-      // -------------------------------------------------
-      // Read response
-      // -------------------------------------------------
 
       const data =
         await response.json();
 
-
-      console.log(
-        'Report save response:',
-        data
-      );
-
-
-      // -------------------------------------------------
-      // Check response
-      // -------------------------------------------------
-
       if (!response.ok) {
-
         throw new Error(
           data.message ||
           data.error ||
           'Failed to save report.'
         );
-
       }
-
-
-      console.log(
-        'Report saved successfully.'
-      );
-
 
       return data.report || data;
 
-
     } catch (error) {
-
       console.log(
         'SAVE REPORT ERROR:',
         error
       );
 
-
       throw error;
 
-
     } finally {
-
       setIsSavingReport(false);
-
     }
-
   };
 
-
-  // =================================================
-  // Analyze Image
-  // =================================================
-
   const handleAnalyze = async () => {
-
-    // -------------------------------------------------
-    // Check Image
-    // -------------------------------------------------
-
     if (!selectedFile) {
-
       Alert.alert(
         'Select Image',
         'Please choose an eye image first.'
       );
-
       return;
     }
 
-
     setIsAnalyzing(true);
-
     setResult(null);
 
-
     try {
-
-      console.log(
-        'Preparing image for upload...'
-      );
-
-
-      // -------------------------------------------------
-      // FormData
-      // -------------------------------------------------
-
       const formData =
         new FormData();
-
 
       formData.append(
         'image',
@@ -404,82 +253,38 @@ export default function Page06_EyeDetection({
         }
       );
 
-
-      // -------------------------------------------------
-      // ML Prediction API
-      // -------------------------------------------------
-
-      console.log(
-        'Sending image to ML backend...'
-      );
-
-
       const response =
         await fetch(
           `${API_URL}/api/eye-disease/predict`,
           {
-
             method: 'POST',
-
             body: formData,
-
           }
         );
 
-
-      console.log(
-        'Prediction HTTP status:',
-        response.status
-      );
-
-
       const data =
         await response.json();
-
-
-      console.log(
-        'Prediction response:',
-        data
-      );
-
-
-      // -------------------------------------------------
-      // Check Prediction
-      // -------------------------------------------------
 
       if (
         !response.ok ||
         !data.success
       ) {
-
         throw new Error(
           data.message ||
           'Prediction failed.'
         );
-
       }
-
 
       const prediction =
         data.result;
-
-
-      // =================================================
-      // INVALID IMAGE
-      // =================================================
 
       if (
         prediction.condition ===
         'Invalid Image'
       ) {
-
         setResult({
-
           condition:
             'Invalid Image',
-
-          confidence:
-            `${prediction.confidence}%`,
 
           message:
             prediction.message ||
@@ -493,31 +298,18 @@ export default function Page06_EyeDetection({
 
           validation:
             prediction.validation,
-
         });
 
-
         return;
-
       }
-
-
-      // =================================================
-      // UNCLEAR IMAGE
-      // =================================================
 
       if (
         prediction.condition ===
         'Unclear Image'
       ) {
-
         setResult({
-
           condition:
             'Unclear Image',
-
-          confidence:
-            `${prediction.confidence}%`,
 
           message:
             prediction.message ||
@@ -531,62 +323,37 @@ export default function Page06_EyeDetection({
 
           validation:
             prediction.validation,
-
         });
 
-
         return;
-
       }
-
-
-      // =================================================
-      // VALID EYE IMAGE
-      // =================================================
 
       let statusColor =
         '#22C55E';
-
 
       if (
         prediction.condition ===
         'Cataract'
       ) {
-
         statusColor =
           '#EF4444';
 
-      }
-
-
-      else if (
+      } else if (
         prediction.condition ===
         'Conjunctivitis'
       ) {
-
         statusColor =
           '#F59E0B';
 
-      }
-
-
-      else if (
+      } else if (
         prediction.condition ===
         'Healthy'
       ) {
-
         statusColor =
           '#22C55E';
-
       }
 
-
-      // -------------------------------------------------
-      // Save Result On Screen
-      // -------------------------------------------------
-
       const predictionResult = {
-
         condition:
           prediction.condition,
 
@@ -597,65 +364,46 @@ export default function Page06_EyeDetection({
           prediction.message ||
           'Prediction completed successfully.',
 
-        statusColor:
-          statusColor,
+        statusColor,
 
         isInvalid:
           false,
 
         probabilities:
-          prediction.probabilities || {},
+          prediction.probabilities ||
+          {},
 
         validation:
-          prediction.validation || null,
-
+          prediction.validation ||
+          null,
       };
-
 
       setResult(
         predictionResult
       );
 
-
-      // =================================================
-      // SAVE REPORT TO MONGODB
-      // =================================================
-
       try {
-
         await saveReportToDatabase(
           prediction
         );
 
-
-        console.log(
-          'MongoDB report save completed.'
-        );
-
-
       } catch (saveError) {
-
         console.log(
           'MongoDB save failed:',
           saveError
         );
 
-
         Alert.alert(
           'Report Save Warning',
           'Prediction completed, but the report could not be saved to the database.'
         );
-
       }
 
-
     } catch (error) {
-
       console.log(
         'PREDICTION ERROR:',
         error
       );
-
 
       Alert.alert(
         'Prediction Error',
@@ -663,62 +411,32 @@ export default function Page06_EyeDetection({
         'Unable to connect to the backend.'
       );
 
-
     } finally {
-
       setIsAnalyzing(false);
-
     }
-
   };
 
-
-  // =================================================
-  // View Full Report
-  // =================================================
-
   const handleViewReport = () => {
-
-    // -------------------------------------------------
-    // Check result
-    // -------------------------------------------------
-
     if (!result) {
-
       Alert.alert(
         'No Report',
         'Please analyze an image first.'
       );
-
       return;
     }
 
-
-    // -------------------------------------------------
-    // Invalid image
-    // -------------------------------------------------
-
     if (result.isInvalid) {
-
       Alert.alert(
         'Invalid Image',
         'A valid eye image is required to create a report.'
       );
-
       return;
     }
-
-
-    // -------------------------------------------------
-    // Navigate to Page10
-    // -------------------------------------------------
 
     onNavigate(
       'Page10_ReportDetail',
       {
-
         reportData: {
-
           condition:
             result.condition,
 
@@ -738,43 +456,98 @@ export default function Page06_EyeDetection({
             null,
 
           patientName:
-            'John Doe',
+            patientName ||
+            'Patient',
 
           patientId:
-            'P123456',
+            patientId ||
+            '',
 
           date:
-            new Date()
-              .toLocaleDateString(),
-
+            new Date().toLocaleDateString(),
         },
-
       }
     );
-
   };
 
+  const getMeaningText = () => {
+    if (!result) {
+      return '';
+    }
 
-  // =================================================
-  // Render
-  // =================================================
+    if (
+      result.condition ===
+      'Cataract'
+    ) {
+      return 'The result may indicate signs associated with cataract. Please consult an eye care professional for proper examination and confirmation.';
+    }
+
+    if (
+      result.condition ===
+      'Conjunctivitis'
+    ) {
+      return 'The result may indicate signs associated with conjunctivitis. Please consult an eye care professional for proper examination and confirmation.';
+    }
+
+    if (
+      result.condition ===
+      'Healthy'
+    ) {
+      return 'The image appears consistent with a healthy eye based on the AI screening model.';
+    }
+
+    return result.message || '';
+  };
+
+  const getNextSteps = () => {
+    if (!result) {
+      return [];
+    }
+
+    if (
+      result.condition ===
+      'Cataract'
+    ) {
+      return [
+        'Book an appointment with an eye specialist.',
+        'Have a complete eye examination.',
+        'Follow the advice given by your healthcare professional.',
+      ];
+    }
+
+    if (
+      result.condition ===
+      'Conjunctivitis'
+    ) {
+      return [
+        'Consult an eye care professional.',
+        'Avoid touching or rubbing your eyes.',
+        'Follow professional medical advice if treatment is required.',
+      ];
+    }
+
+    if (
+      result.condition ===
+      'Healthy'
+    ) {
+      return [
+        'Continue regular eye care.',
+        'Maintain good eye hygiene.',
+        'Have regular eye examinations when recommended.',
+      ];
+    }
+
+    return [];
+  };
 
   return (
-
     <SafeAreaView
       style={styles.container}
     >
-
       <StatusBarMock />
-
-
-      {/* =================================================
-          Header
-      ================================================= */}
 
       <Header
         title="Eye Disease Detection"
-
         onBack={() =>
           onNavigate(
             'Page05_PatientHome'
@@ -782,39 +555,34 @@ export default function Page06_EyeDetection({
         }
       />
 
-
       <ScrollView
         contentContainerStyle={
           styles.content
         }
-
         showsVerticalScrollIndicator={
           false
         }
       >
 
-
-        {/* =================================================
-            Upload Box
-        ================================================= */}
-
         <View
-          style={styles.uploadBox}
+          style={
+            styles.uploadBox
+          }
         >
 
           <View
-            style={styles.filePickerRow}
+            style={
+              styles.filePickerRow
+            }
           >
 
             <TouchableOpacity
               style={
                 styles.chooseFileButton
               }
-
               onPress={
                 handleChooseFile
               }
-
               disabled={
                 isAnalyzing ||
                 isSavingReport
@@ -831,37 +599,27 @@ export default function Page06_EyeDetection({
 
             </TouchableOpacity>
 
-
             <Text
               style={
                 styles.fileNameText
               }
-
               numberOfLines={1}
             >
-
               {selectedFile
                 ? selectedFile.name
                 : 'No file chosen'}
-
             </Text>
 
           </View>
-
-
-          {/* Analyze Button */}
 
           <TouchableOpacity
             style={
               styles.analyzeButton
             }
-
             onPress={
               handleAnalyze
             }
-
             activeOpacity={0.85}
-
             disabled={
               isAnalyzing ||
               isSavingReport
@@ -930,17 +688,11 @@ export default function Page06_EyeDetection({
 
         </View>
 
-
-        {/* =================================================
-            Result Header
-        ================================================= */}
-
         <View
           style={
             styles.resultBanner
           }
         >
-
           <Text
             style={
               styles.resultBannerText
@@ -948,13 +700,7 @@ export default function Page06_EyeDetection({
           >
             RESULT
           </Text>
-
         </View>
-
-
-        {/* =================================================
-            Legend
-        ================================================= */}
 
         <View
           style={
@@ -967,7 +713,6 @@ export default function Page06_EyeDetection({
               styles.legendItem
             }
           >
-
             <View
               style={[
                 styles.dot,
@@ -985,16 +730,13 @@ export default function Page06_EyeDetection({
             >
               Healthy
             </Text>
-
           </View>
-
 
           <View
             style={
               styles.legendItem
             }
           >
-
             <View
               style={[
                 styles.dot,
@@ -1012,16 +754,13 @@ export default function Page06_EyeDetection({
             >
               Cataract
             </Text>
-
           </View>
-
 
           <View
             style={
               styles.legendItem
             }
           >
-
             <View
               style={[
                 styles.dot,
@@ -1039,15 +778,9 @@ export default function Page06_EyeDetection({
             >
               Conjunctivitis
             </Text>
-
           </View>
 
         </View>
-
-
-        {/* =================================================
-            Result Display
-        ================================================= */}
 
         <View
           style={
@@ -1063,30 +796,18 @@ export default function Page06_EyeDetection({
               }
             >
 
-
-              {/* Selected Image */}
-
               {selectedFile && (
-
                 <Image
                   source={{
                     uri:
                       selectedFile.uri,
                   }}
-
                   style={
                     styles.previewImage
                   }
-
                   resizeMode="cover"
                 />
-
               )}
-
-
-              {/* =================================================
-                  INVALID IMAGE
-              ================================================= */}
 
               {result.isInvalid ? (
 
@@ -1100,7 +821,6 @@ export default function Page06_EyeDetection({
                     Image Validation:
                   </Text>
 
-
                   <Text
                     style={[
                       styles.detectedCondition,
@@ -1112,7 +832,6 @@ export default function Page06_EyeDetection({
                   >
                     {result.condition}
                   </Text>
-
 
                   <Text
                     style={
@@ -1122,60 +841,19 @@ export default function Page06_EyeDetection({
                     {result.message}
                   </Text>
 
-
-                  <Text
-                    style={
-                      styles.confidenceText
-                    }
-                  >
-                    Confidence:{' '}
-                    {result.confidence}
-                  </Text>
-
-
-                  {result.validation && (
-
-                    <Text
-                      style={
-                        styles.validationText
-                      }
-                    >
-
-                      Eye Confidence:{' '}
-                      {
-                        result.validation
-                          .eye_confidence
-                      }%
-
-                      {'\n'}
-
-                      Non-Eye Confidence:{' '}
-                      {
-                        result.validation
-                          .non_eye_confidence
-                      }%
-
-                    </Text>
-
-                  )}
-
                 </>
 
               ) : (
 
                 <>
-                  {/* =================================================
-                      VALID RESULT
-                  ================================================= */}
 
                   <Text
                     style={
                       styles.detectedTitle
                     }
                   >
-                    Diagnosis Result:
+                    Diagnosis Result
                   </Text>
-
 
                   <Text
                     style={[
@@ -1186,95 +864,81 @@ export default function Page06_EyeDetection({
                       },
                     ]}
                   >
-
                     {result.condition}
-                    {' '}Detected
-
                   </Text>
 
-
-                  <Text
+                  <View
                     style={
-                      styles.confidenceText
+                      styles.infoBox
                     }
                   >
 
-                    Confidence:{' '}
-                    {result.confidence}
-
-                  </Text>
-
-
-                  {/* =================================================
-                      Prediction Probabilities
-                  ================================================= */}
-
-                  {result.probabilities && (
-
-                    <View
+                    <Text
                       style={
-                        styles.probabilityBox
+                        styles.infoTitle
                       }
                     >
+                      What does this mean?
+                    </Text>
 
-                      <Text
-                        style={
-                          styles.probabilityText
-                        }
-                      >
+                    <Text
+                      style={
+                        styles.infoText
+                      }
+                    >
+                      {getMeaningText()}
+                    </Text>
 
-                        Cataract:{' '}
-                        {
-                          result
-                            .probabilities
-                            .Cataract ?? 0
-                        }%
+                  </View>
 
-                      </Text>
+                  <View
+                    style={
+                      styles.nextStepsBox
+                    }
+                  >
 
+                    <Text
+                      style={
+                        styles.infoTitle
+                      }
+                    >
+                      Recommended Next Steps
+                    </Text>
 
-                      <Text
-                        style={
-                          styles.probabilityText
-                        }
-                      >
+                    {getNextSteps().map(
+                      (step, index) => (
 
-                        Conjunctivitis:{' '}
-                        {
-                          result
-                            .probabilities
-                            .Conjunctivitis ?? 0
-                        }%
+                        <View
+                          key={index}
+                          style={
+                            styles.stepRow
+                          }
+                        >
 
-                      </Text>
+                          <Text
+                            style={
+                              styles.stepBullet
+                            }
+                          >
+                            •
+                          </Text>
 
+                          <Text
+                            style={
+                              styles.stepText
+                            }
+                          >
+                            {step}
+                          </Text>
 
-                      <Text
-                        style={
-                          styles.probabilityText
-                        }
-                      >
+                        </View>
 
-                        Healthy:{' '}
-                        {
-                          result
-                            .probabilities
-                            .Healthy ?? 0
-                        }%
+                      )
+                    )}
 
-                      </Text>
-
-                    </View>
-
-                  )}
-
-
-                  {/* =================================================
-                      MongoDB Status
-                  ================================================= */}
+                  </View>
 
                   {isSavingReport && (
-
                     <Text
                       style={
                         styles.savingText
@@ -1282,23 +946,15 @@ export default function Page06_EyeDetection({
                     >
                       Saving report...
                     </Text>
-
                   )}
-
-
-                  {/* =================================================
-                      View Full Report
-                  ================================================= */}
 
                   <TouchableOpacity
                     style={
                       styles.viewReportButton
                     }
-
                     onPress={
                       handleViewReport
                     }
-
                     disabled={
                       isSavingReport
                     }
@@ -1336,61 +992,41 @@ export default function Page06_EyeDetection({
 
       </ScrollView>
 
-
-      {/* =================================================
-          Bottom Navigation
-      ================================================= */}
-
       <BottomNavBar
-
         activeTab="Home"
-
         onTabSelect={(tab) => {
 
           if (
             tab === 'Reports'
           ) {
-
             onNavigate(
               'Page09_ReportsList'
             );
-
           }
-
 
           if (
             tab === 'Profile'
           ) {
-
             onNavigate(
               'Page14_Profile'
             );
-
           }
 
         }}
-
       />
 
     </SafeAreaView>
-
   );
-
 }
-
-
-// =================================================
-// Styles
-// =================================================
 
 const styles =
   StyleSheet.create({
 
     container: {
       flex: 1,
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
     },
-
 
     content: {
       paddingHorizontal: 20,
@@ -1398,20 +1034,20 @@ const styles =
       paddingBottom: 24,
     },
 
-
     uploadBox: {
-      backgroundColor: '#EAEFFE',
+      backgroundColor:
+        '#EAEFFE',
       borderRadius: 20,
       padding: 24,
       alignItems: 'center',
       marginBottom: 20,
     },
 
-
     filePickerRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#828FA3',
+      backgroundColor:
+        '#828FA3',
       borderRadius: 6,
       paddingHorizontal: 10,
       paddingVertical: 8,
@@ -1419,22 +1055,20 @@ const styles =
       marginBottom: 20,
     },
 
-
     chooseFileButton: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor:
+        '#FFFFFF',
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: 4,
       marginRight: 10,
     },
 
-
     chooseFileText: {
       fontSize: 13,
       fontWeight: '700',
       color: '#000000',
     },
-
 
     fileNameText: {
       color: '#FFFFFF',
@@ -1443,27 +1077,22 @@ const styles =
       flex: 1,
     },
 
-
     analyzeButton: {
-      backgroundColor: '#5B92E5',
+      backgroundColor:
+        '#5B92E5',
       paddingHorizontal: 32,
       paddingVertical: 12,
       borderRadius: 24,
-
-      shadowColor: '#5B92E5',
-
+      shadowColor:
+        '#5B92E5',
       shadowOffset: {
         width: 0,
         height: 4,
       },
-
       shadowOpacity: 0.3,
-
       shadowRadius: 6,
-
       elevation: 3,
     },
-
 
     analyzeButtonText: {
       color: '#FFFFFF',
@@ -1471,22 +1100,20 @@ const styles =
       fontWeight: '700',
     },
 
-
     loadingRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
     },
 
-
     resultBanner: {
-      backgroundColor: '#EAEFFE',
+      backgroundColor:
+        '#EAEFFE',
       borderRadius: 8,
       paddingVertical: 10,
       alignItems: 'center',
       marginBottom: 16,
     },
-
 
     resultBannerText: {
       fontSize: 16,
@@ -1495,20 +1122,18 @@ const styles =
       letterSpacing: 1,
     },
 
-
     legendRow: {
       flexDirection: 'row',
-      justifyContent: 'space-around',
+      justifyContent:
+        'space-around',
       alignItems: 'center',
       marginBottom: 20,
     },
-
 
     legendItem: {
       flexDirection: 'row',
       alignItems: 'center',
     },
-
 
     dot: {
       width: 12,
@@ -1517,36 +1142,27 @@ const styles =
       marginRight: 6,
     },
 
-
     legendText: {
       fontSize: 14,
       fontWeight: '700',
       color: '#000000',
     },
 
-
     resultContainer: {
-      backgroundColor: '#EAEFFE',
+      backgroundColor:
+        '#EAEFFE',
       borderRadius: 12,
       minHeight: 250,
-      justifyContent: 'center',
+      justifyContent:
+        'center',
       alignItems: 'center',
       padding: 16,
     },
-
-
-    noResultText: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: '#000000',
-    },
-
 
     resultDetails: {
       alignItems: 'center',
       width: '100%',
     },
-
 
     previewImage: {
       width: 90,
@@ -1555,31 +1171,20 @@ const styles =
       marginBottom: 10,
     },
 
-
     detectedTitle: {
       fontSize: 14,
       color: '#475569',
       fontWeight: '600',
       textAlign: 'center',
+      marginBottom: 4,
     },
-
 
     detectedCondition: {
       fontSize: 20,
       fontWeight: '800',
-      marginVertical: 4,
+      marginVertical: 6,
       textAlign: 'center',
     },
-
-
-    confidenceText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: '#334155',
-      marginBottom: 12,
-      textAlign: 'center',
-    },
-
 
     invalidMessage: {
       fontSize: 13,
@@ -1587,36 +1192,63 @@ const styles =
       color: '#475569',
       textAlign: 'center',
       marginBottom: 8,
+      lineHeight: 20,
     },
 
-
-    validationText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#64748B',
-      textAlign: 'center',
-      marginBottom: 10,
-      lineHeight: 18,
-    },
-
-
-    probabilityBox: {
+    infoBox: {
       width: '100%',
-      backgroundColor: '#FFFFFF',
-      borderRadius: 8,
-      padding: 10,
+      backgroundColor:
+        '#FFFFFF',
+      borderRadius: 10,
+      padding: 14,
+      marginTop: 12,
+      marginBottom: 10,
+    },
+
+    nextStepsBox: {
+      width: '100%',
+      backgroundColor:
+        '#FFFFFF',
+      borderRadius: 10,
+      padding: 14,
       marginBottom: 12,
     },
 
-
-    probabilityText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#475569',
-      textAlign: 'center',
-      marginVertical: 2,
+    infoTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: '#1E293B',
+      marginBottom: 8,
     },
 
+    infoText: {
+      fontSize: 13,
+      lineHeight: 20,
+      fontWeight: '500',
+      color: '#475569',
+    },
+
+    stepRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 6,
+    },
+
+    stepBullet: {
+      fontSize: 18,
+      lineHeight: 20,
+      fontWeight: '800',
+      color: '#5B92E5',
+      marginRight: 8,
+    },
+
+    stepText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 20,
+      fontWeight: '500',
+      color: '#475569',
+    },
 
     savingText: {
       fontSize: 12,
@@ -1625,19 +1257,24 @@ const styles =
       marginBottom: 10,
     },
 
-
     viewReportButton: {
-      backgroundColor: '#5B92E5',
+      backgroundColor:
+        '#5B92E5',
       paddingHorizontal: 20,
       paddingVertical: 8,
       borderRadius: 16,
     },
 
-
     viewReportText: {
       color: '#FFFFFF',
       fontSize: 13,
       fontWeight: '700',
+    },
+
+    noResultText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#000000',
     },
 
   });

@@ -24,17 +24,8 @@ export default function Page11_SendReport({
   reportData,
 }) {
 
-  // =================================================
-  // State
-  // =================================================
-
   const [email, setEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
-
-
-  // =================================================
-  // Report Data
-  // =================================================
 
   const report = reportData || {};
 
@@ -60,15 +51,7 @@ export default function Page11_SendReport({
     report.date || '';
 
 
-  // =================================================
-  // Send Report
-  // =================================================
-
   const handleSend = async () => {
-
-    // -------------------------------------------------
-    // Check email
-    // -------------------------------------------------
 
     if (!email.trim()) {
 
@@ -80,10 +63,6 @@ export default function Page11_SendReport({
       return;
     }
 
-
-    // -------------------------------------------------
-    // Validate email
-    // -------------------------------------------------
 
     const emailRegex =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -99,10 +78,6 @@ export default function Page11_SendReport({
       return;
     }
 
-
-    // -------------------------------------------------
-    // Start sending
-    // -------------------------------------------------
 
     try {
 
@@ -127,10 +102,6 @@ export default function Page11_SendReport({
         email.trim()
       );
 
-
-      // -------------------------------------------------
-      // Prepare request body
-      // -------------------------------------------------
 
       const requestBody = {
 
@@ -168,10 +139,6 @@ export default function Page11_SendReport({
       );
 
 
-      // -------------------------------------------------
-      // Send to Backend
-      // -------------------------------------------------
-
       const response = await fetch(
         `${API_URL}/api/reports/send`,
         {
@@ -189,10 +156,6 @@ export default function Page11_SendReport({
       );
 
 
-      // -------------------------------------------------
-      // Read response
-      // -------------------------------------------------
-
       const data =
         await response.json();
 
@@ -203,10 +166,6 @@ export default function Page11_SendReport({
       );
 
 
-      // -------------------------------------------------
-      // Check response
-      // -------------------------------------------------
-
       if (!response.ok || !data.success) {
 
         throw new Error(
@@ -216,10 +175,6 @@ export default function Page11_SendReport({
         );
       }
 
-
-      // -------------------------------------------------
-      // Success
-      // -------------------------------------------------
 
       Alert.alert(
         'Report Sent Successfully',
@@ -256,10 +211,6 @@ export default function Page11_SendReport({
       );
 
 
-      // -------------------------------------------------
-      // Network Error
-      // -------------------------------------------------
-
       if (
         error.message ===
         'Network request failed'
@@ -290,20 +241,12 @@ export default function Page11_SendReport({
   };
 
 
-  // =================================================
-  // UI
-  // =================================================
-
   return (
 
     <SafeAreaView style={styles.container}>
 
       <StatusBarMock />
 
-
-      {/* =================================================
-          Header
-      ================================================= */}
 
       <Header
         title="Report"
@@ -322,10 +265,6 @@ export default function Page11_SendReport({
       >
 
 
-        {/* =================================================
-            Main Card
-        ================================================= */}
-
         <View style={styles.cardBox}>
 
 
@@ -334,14 +273,8 @@ export default function Page11_SendReport({
           </Text>
 
 
-          {/* =================================================
-              Report Preview
-          ================================================= */}
-
           <View style={styles.reportPreview}>
 
-
-            {/* Eye Image */}
 
             {imageUri && (
 
@@ -358,8 +291,6 @@ export default function Page11_SendReport({
             )}
 
 
-            {/* Patient */}
-
             <Text style={styles.previewText}>
 
               <Text style={styles.previewLabel}>
@@ -371,8 +302,6 @@ export default function Page11_SendReport({
             </Text>
 
 
-            {/* Patient ID */}
-
             <Text style={styles.previewText}>
 
               <Text style={styles.previewLabel}>
@@ -383,8 +312,6 @@ export default function Page11_SendReport({
 
             </Text>
 
-
-            {/* Date */}
 
             {reportDate !== '' && (
 
@@ -401,8 +328,6 @@ export default function Page11_SendReport({
             )}
 
 
-            {/* Condition */}
-
             <Text style={styles.previewText}>
 
               <Text style={styles.previewLabel}>
@@ -414,82 +339,8 @@ export default function Page11_SendReport({
             </Text>
 
 
-            {/* Confidence */}
-
-            <Text style={styles.previewText}>
-
-              <Text style={styles.previewLabel}>
-                Confidence:{' '}
-              </Text>
-
-              {confidence}
-
-            </Text>
-
-
-            {/* =================================================
-                Prediction Probabilities
-            ================================================= */}
-
-            <View style={styles.probabilityBox}>
-
-              <Text style={styles.probabilityTitle}>
-                Prediction Probabilities
-              </Text>
-
-
-              {/* Cataract */}
-
-              <View style={styles.probabilityRow}>
-
-                <Text style={styles.probabilityName}>
-                  Cataract
-                </Text>
-
-                <Text style={styles.probabilityValue}>
-                  {probabilities.Cataract ?? 0}%
-                </Text>
-
-              </View>
-
-
-              {/* Conjunctivitis */}
-
-              <View style={styles.probabilityRow}>
-
-                <Text style={styles.probabilityName}>
-                  Conjunctivitis
-                </Text>
-
-                <Text style={styles.probabilityValue}>
-                  {probabilities.Conjunctivitis ?? 0}%
-                </Text>
-
-              </View>
-
-
-              {/* Healthy */}
-
-              <View style={styles.probabilityRow}>
-
-                <Text style={styles.probabilityName}>
-                  Healthy
-                </Text>
-
-                <Text style={styles.probabilityValue}>
-                  {probabilities.Healthy ?? 0}%
-                </Text>
-
-              </View>
-
-            </View>
-
           </View>
 
-
-          {/* =================================================
-              Recipient Email
-          ================================================= */}
 
           <Text style={styles.inputLabel}>
             Recipient Email
@@ -516,10 +367,6 @@ export default function Page11_SendReport({
             editable={!isSending}
           />
 
-
-          {/* =================================================
-              Send Button
-          ================================================= */}
 
           <TouchableOpacity
 
@@ -553,10 +400,6 @@ export default function Page11_SendReport({
       </ScrollView>
 
 
-      {/* =================================================
-          Bottom Navigation
-      ================================================= */}
-
       <BottomNavBar
 
         activeTab="Reports"
@@ -589,10 +432,6 @@ export default function Page11_SendReport({
 }
 
 
-// =================================================
-// Styles
-// =================================================
-
 const styles = StyleSheet.create({
 
   container: {
@@ -608,10 +447,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-
-  // =================================================
-  // Main Card
-  // =================================================
 
   cardBox: {
     width: '100%',
@@ -630,10 +465,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-
-  // =================================================
-  // Report Preview
-  // =================================================
 
   reportPreview: {
     width: '100%',
@@ -667,51 +498,6 @@ const styles = StyleSheet.create({
   },
 
 
-  // =================================================
-  // Probability
-  // =================================================
-
-  probabilityBox: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 8,
-  },
-
-
-  probabilityTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-
-
-  probabilityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 3,
-  },
-
-
-  probabilityName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-
-
-  probabilityValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#334155',
-  },
-
-
-  // =================================================
-  // Email
-  // =================================================
-
   inputLabel: {
     alignSelf: 'flex-start',
     fontSize: 14,
@@ -734,10 +520,6 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
   },
 
-
-  // =================================================
-  // Send Button
-  // =================================================
 
   sendButton: {
     backgroundColor: '#5B92E5',
